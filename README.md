@@ -145,6 +145,12 @@ Our script automatically paints on the canvas using a template using data receiv
 ## How to start 📚
 
 Before you begin, make sure you have meet the [requirements](#requirements)
+```shell
+git clone https://github.com/asish1346/NotPixelBot.git
+```
+```shell
+cd NotPixelBot
+```
 
 ## Obtaining API Keys
 
