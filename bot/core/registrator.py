@@ -39,13 +39,8 @@ async def register_sessions(session_name: str | None = None) -> None:
 
         json_manager = JsonManager()
 
-        json_manager.save_to_json(
-            "accounts.json",
-            {
-                "session_name": session_name,
-                "user_agent": user_agent,
-                "proxy": raw_proxy,
-            },
+        json_manager.add_account(
+            session_name=session_name, user_agent=user_agent, proxy=raw_proxy
         )
 
         logger.info(
