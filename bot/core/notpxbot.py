@@ -683,7 +683,7 @@ class NotPXBot:
                 return
 
             logger.warning(
-                f"{self.session_name} | Successfully painted pixel |\033[38;2;255;165;0m +{round(balance_increase, 2)}\033[0m PX | Balance:\033[34m{round(self.balance, 2)}\033[0m PX"
+                f"{self.session_name} | Successfully painted pixel |\033[91m +0\033[0m PX | Balance:\033[34m{round(self.balance, 2)}\033[0m PX"
             )
 
     async def _paint_pixels(
