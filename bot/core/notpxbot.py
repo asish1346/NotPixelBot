@@ -677,13 +677,13 @@ class NotPXBot:
             if round(new_balance, 2) > round(self.balance, 2):
                 balance_increase = new_balance - self.balance
                 logger.info(
-                    f"{self.session_name} | Successfully painted pixel |\033[92m +{round(balance_increase, 2)}\033[0m PX"
+                    f"{self.session_name} | Successfully painted pixel |\033[92m +{round(balance_increase, 2)}\033[0m PX | Balance:\033[34m{round(self.balance, 2)}\033[0m PX"
                 )
                 self.balance = new_balance
                 return
 
             logger.warning(
-                f"{self.session_name} | Painted pixel, Got \033[5m +0 \033[0m | Current Balance:\033[34m{round(self.balance, 2)}\033[0m PX"
+                f"{self.session_name} | Successfully painted pixel |\033[38;2;255;165;0m +{round(balance_increase, 2)}\033[0m PX | Balance:\033[34m{round(self.balance, 2)}\033[0m PX"
             )
 
     async def _paint_pixels(
