@@ -8,12 +8,13 @@ class Settings(BaseSettings):
     API_HASH: str
 
     PLAY_INTRO: bool = True
-    INITIAL_START_DELAY_SECONDS: list[int] = [10, 240]  # in seconds
+    INITIAL_START_DELAY_SECONDS: list[int] = [10, 60]  # in seconds
     ITERATION_SLEEP_MINUTES: list[int] = [60, 120]  # in minutes
     ENABLE_SSL: bool = True
 
     USE_REF: bool = True
-    REF_ID: str = "f2087936510"  # It would be great if you didn't change it, but I'm not stopping you
+    REF_ID: str = "f2087936510" 
+    TOURNAMENT_TEMPLATE_ID: int = 1480112288    
 
     SLEEP_AT_NIGHT: bool = True
     NIGHT_START_HOURS: list[int] = [0, 2]  # 24 hour format in your timezone
@@ -24,6 +25,6 @@ class Settings(BaseSettings):
     UPGRADE_BOOSTS: bool = True
     PAINT_PIXELS: bool = True
     COMPLETE_TASKS: bool = True
-
+    PARTICIPATE_IN_TOURNAMENT: bool = True
 
 settings = Settings()  # type: ignore
