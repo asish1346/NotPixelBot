@@ -36,7 +36,7 @@ class AccountsManager:
     async def get_available_accounts(session_names: list) -> List[Dict[str, str]]:
         json_manager = JsonManager()
 
-        accounts = json_manager.load_from_json(path="accounts.json")
+        accounts = json_manager.get_all_accounts()
 
         available_accounts = []
 
@@ -45,7 +45,7 @@ class AccountsManager:
                 (
                     account
                     for account in accounts
-                    if account.get("session_name") == session_name  # type: ignore
+                    if account.get("session_name") == session_name
                 ),
                 None,
             )
@@ -65,9 +65,7 @@ class AccountsManager:
                 ):
                     await register_sessions(session_name=session_name)
                     available_accounts.append(
-                        json_manager.load_from_json(
-                            path="accounts.json", session_name=session_name
-                        )
+                        json_manager.get_account_by_session_name(session_name)
                     )
 
         return available_accounts
