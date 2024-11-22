@@ -63,7 +63,15 @@ async def run_tasks(accounts: List[Dict[str, str]]) -> None:
     tasks = []
     try:
         for account in accounts:
-            session_name, user_agent, raw_proxy = account.values()
+            session_name = account.get("session_name")
+            user_agent = account.get("user_agent")
+            raw_proxy = account.get("proxy")
+
+            if not session_name or not user_agent:
+                raise ValueError(
+                    "Session name or user agent not found in accounts.json"
+                )
+
             telegram_client = await get_telegram_client(
                 session_name=session_name, user_agent=user_agent, raw_proxy=raw_proxy
             )
