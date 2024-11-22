@@ -22,7 +22,7 @@ from bot.core.canvas_updater.websocket_manager import WebSocketManager
 from bot.core.notpx_api_checker import NotPXAPIChecker
 from bot.core.tg_mini_app_auth import TelegramMiniAppAuth
 from bot.utils.logger import dev_logger, logger
-
+from bot.utils.json_manager import JsonManager
 
 class NotPXBot:
     RETRY_ITERATION_DELAY = 10 * 60  # 10 minutes
@@ -183,7 +183,19 @@ class NotPXBot:
 
         plausible_payload = await self._create_plausible_payload(auth_url)
         await self._send_plausible_event(session, plausible_payload)
-
+        if settings.PARTICIPATE_IN_TOURNAMENT:
+            json_manager = JsonManager()
+            session_data = json_manager.get_account_by_session_name(self.session_name)
+            if not session_data:
+                raise ValueError(
+                    f"Session name '{self.session_name}' not found in accounts.json"
+                )
+            if not session_data.get("tournament_first_round_template_id"):
+                await self._set_tournament_template(session)
+                json_manager.update_account(
+                    self.session_name,
+                    tournament_first_round_template_id=settings.TOURNAMENT_TEMPLATE_ID,
+                )
         about_me_data = await self._get_me(session)
 
         websocket_token = about_me_data.get("websocketToken")
@@ -845,7 +857,33 @@ class NotPXBot:
                 raise Exception(
                     f"{self.session_name} | Max retry attempts reached while completing tasks"
                 )
-
+    async def _set_tournament_template(
+        self, session: aiohttp.ClientSession, attempts: int = 1
+    ) -> None:
+        try:
+            response = await session.put(
+                f"https://notpx.app/api/v1/tournament/template/subscribe/{settings.TOURNAMENT_TEMPLATE_ID}",
+                headers=self._headers["notpx"],
+                ssl=settings.ENABLE_SSL,
+            )
+            response.raise_for_status()
+            logger.info(
+                f"{self.session_name} | Set tournament template | Template ID: {settings.TOURNAMENT_TEMPLATE_ID}"
+            )
+        except Exception:
+            if attempts <= 3:
+                logger.warning(
+                    f"{self.session_name} | Failed to set tournament template, retrying in {self.RETRY_DELAY} seconds | Attempts: {attempts}"
+                )
+                dev_logger.warning(f"{self.session_name} | {traceback.format_exc()}")
+                await asyncio.sleep(self.RETRY_DELAY)
+                await self._set_tournament_template(
+                    session=session, attempts=attempts + 1
+                )
+            else:
+                raise Exception(
+                    f"{self.session_name} | Max retry attempts reached while setting tournament template"
+                )
 
 def handle_error(session_name, error: Exception) -> None:
     logger.error(f"{error.__str__() if error else 'NotPXBot | Something went wrong'}")
