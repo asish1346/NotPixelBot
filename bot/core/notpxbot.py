@@ -861,6 +861,10 @@ class NotPXBot:
         self, session: aiohttp.ClientSession, attempts: int = 1
     ) -> None:
         try:
+            plausible_payload = await self._create_plausible_payload(
+                "https://app.notpx.app/tournament"
+            )
+            await self._send_plausible_event(session, plausible_payload)            
             response = await session.put(
                 f"https://notpx.app/api/v1/tournament/template/subscribe/{settings.TOURNAMENT_TEMPLATE_ID}",
                 headers=self._headers["notpx"],
@@ -870,6 +874,11 @@ class NotPXBot:
             logger.info(
                 f"{self.session_name} | Set tournament template | Template ID: {settings.TOURNAMENT_TEMPLATE_ID}"
             )
+
+            plausible_payload = await self._create_plausible_payload(
+                "https://app.notpx.app/"
+            )
+            await self._send_plausible_event(session, plausible_payload)        
         except Exception:
             if attempts <= 3:
                 logger.warning(
