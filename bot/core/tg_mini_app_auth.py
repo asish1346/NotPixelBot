@@ -1,7 +1,10 @@
 import asyncio
 import json
 from typing import Dict
-from urllib.parse import parse_qs, unquote
+from urllib.parse import (
+    parse_qs,
+    unquote,
+)
 
 import pyrogram
 from better_proxy import Proxy
@@ -57,6 +60,8 @@ class TelegramMiniAppAuth:
                 )
             )
 
+            auth_url = self.replace_tg_params(web_view.url)
+
             telegram_web_data = unquote(
                 web_view.url.split("tgWebAppData=")[1].split("&tgWebAppVersion")[0]
             )
@@ -69,7 +74,7 @@ class TelegramMiniAppAuth:
 
             tg_auth_app_data = {
                 "init_data": telegram_web_data,
-                "auth_url": web_view.url,
+                "auth_url": auth_url,
                 "user_data": user_data,
             }
 
@@ -116,3 +121,8 @@ class TelegramMiniAppAuth:
         parsed_user_data["is_premium_user"] = user_data.get("is_premium_user", False)
 
         return parsed_user_data
+
+    def replace_tg_params(self, auth_url: str) -> str:
+        auth_url = auth_url.split("&tgWebAppVersion")[0]
+        auth_url = "&tgWebAppVersion=8.0&tgWebAppPlatform=android&tgWebAppThemeParams=%7B%22bg_color%22%3A%22%23212d3b%22%2C%22section_bg_color%22%3A%22%231d2733%22%2C%22secondary_bg_color%22%3A%22%23151e27%22%2C%22text_color%22%3A%22%23ffffff%22%2C%22hint_color%22%3A%22%237d8b99%22%2C%22link_color%22%3A%22%235eabe1%22%2C%22button_color%22%3A%22%2350a8eb%22%2C%22button_text_color%22%3A%22%23ffffff%22%2C%22header_bg_color%22%3A%22%23242d39%22%2C%22accent_text_color%22%3A%22%2364b5ef%22%2C%22section_header_text_color%22%3A%22%2379c4fc%22%2C%22subtitle_text_color%22%3A%22%237b8790%22%2C%22destructive_text_color%22%3A%22%23ee686f%22%2C%22section_separator_color%22%3A%22%230d1218%22%2C%22bottom_bar_bg_color%22%3A%22%23151e27%22%7D"
+        return auth_url
