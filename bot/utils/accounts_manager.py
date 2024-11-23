@@ -5,6 +5,7 @@ from bot.config.config import settings
 from bot.core.registrator import register_sessions
 from bot.utils.json_manager import JsonManager
 from bot.utils.logger import logger
+from bot.utils.ua_generator import TelegramUserAgentGenerator
 
 
 class AccountsManager:
@@ -69,3 +70,20 @@ class AccountsManager:
                     )
 
         return available_accounts
+
+    async def update_ua_to_new_format(self):
+        json_manager = JsonManager()
+        accounts = json_manager.get_all_accounts()
+
+        for account in accounts:
+            user_agent = account.get("user_agent")
+
+            if not user_agent:
+                raise ValueError("User agent not found in accounts.json")
+
+            user_agent_generator = TelegramUserAgentGenerator()
+            new_user_agent = user_agent_generator.generate()
+            json_manager.update_account(
+                session_name=account.get("session_name"),
+                user_agent=new_user_agent,
+            )
