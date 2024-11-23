@@ -40,6 +40,8 @@ class NotPXBot:
         self.template_x: int = 0  # defiend in _set_template
         self.template_y: int = 0  # defiend in _set_template
         self.template_size: int = 0  # defiend in _set_template
+        self.plausible_logged = False
+        self.tganalytics_logged = False
         self.max_boosts: Dict[str, int] = {
             "paintReward": 7,
             "reChargeSpeed": 11,
@@ -321,7 +323,9 @@ class NotPXBot:
             )
             response.raise_for_status()
 
-            logger.info( f"{self.session_name} |\033[92m Sent TgAnalytics Data To Ashu's Server\033[0m")
+            if not self.tganalytics_logged:    
+                logger.info( f"{self.session_name} |\033[92m Sent TgAnalytics Data To Server\033[0m")
+                self.tganalytics_logged = True
         except Exception:
             if attempts <= 3:
                 logger.warning(
@@ -371,7 +375,10 @@ class NotPXBot:
                 ssl=settings.ENABLE_SSL,
             )
             response.raise_for_status()
-            logger.info(f"{self.session_name} |\033[92m Payload Sent To Ashu's Server\033[0m")
+
+            if not self.plausible_logged:
+                logger.info(f"{self.session_name} |\033[92m Payload Sent To Server\033[0m")
+                self.plausible_logged = True
         except Exception:
             if attempts <= 3:
                 logger.warning(
