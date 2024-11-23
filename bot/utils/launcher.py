@@ -16,6 +16,7 @@ from bot.utils.logger import dev_logger, logger
 options = """
 1. Register session
 2. Start bot
+3. Update user agent to telegram format
 """
 
 
@@ -37,8 +38,8 @@ async def process() -> None:
             if not action.isdigit():
                 logger.warning("Action must be number")
                 print(options)
-            elif action not in ["1", "2"]:
-                logger.warning("Action must be 1 or 2")
+            elif action not in ["1", "2", "3"]:
+                logger.warning("Action must be 1, 2 or 3")
                 print(options)
             else:
                 action = int(action)
@@ -57,6 +58,8 @@ async def process() -> None:
     elif action == 2:
         accounts = await AccountsManager().get_accounts()
         await run_tasks(accounts=accounts)
+    elif action == 3:
+        await AccountsManager().update_ua_to_new_format()
 
 
 async def run_tasks(accounts: List[Dict[str, str]]) -> None:
