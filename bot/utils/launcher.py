@@ -60,7 +60,7 @@ async def process() -> None:
         await run_tasks(accounts=accounts)
     elif action == 3:
         await AccountsManager().update_ua_to_new_format()
-
+        logger.info("User agent updated")
 
 async def run_tasks(accounts: List[Dict[str, str]]) -> None:
     tasks = []
