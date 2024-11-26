@@ -1,6 +1,6 @@
-import asyncio
 import io
 from functools import lru_cache
+import json
 from typing import Any, Dict, List, Tuple
 
 import numpy as np
@@ -12,8 +12,9 @@ class DynamicCanvasRenderer:
     MAX_ATTEMPTS = 3
     RETRY_DELAY = 5
     CANVAS_SIZE = 1000
-    DYNAMITE_COLOR = "#171F2A"
     DYNAMITE_SIZE = 5
+    DYNAMITE_COLORS = ["#171F2A"] * (DYNAMITE_SIZE * DYNAMITE_SIZE)
+    PUMPKIN_SIZE = 7
     PUMPKIN_COLORS = [
         "#ff8600",
         "#ff1600",
@@ -65,7 +66,6 @@ class DynamicCanvasRenderer:
         "#ff1600",
         "#ff8600",
     ]
-    PUMPKIN_SIZE = 7
 
     _instance = None
 
@@ -75,16 +75,12 @@ class DynamicCanvasRenderer:
         return cls._instance
 
     def __init__(self) -> None:
-        self._canvas: np.ndarray = np.zeros(
-            self.CANVAS_SIZE * self.CANVAS_SIZE * 4, dtype=np.uint8
-        )
-        self._lock = asyncio.Lock()
+        self._canvas: np.ndarray
 
     async def set_canvas(self, canvas_bytes: bytes) -> None:
-        async with self._lock:
-            canvas = Image.open(io.BytesIO(canvas_bytes)).convert("RGBA")
-            canvas_array = np.array(canvas).flatten()
-            self._canvas = canvas_array
+        canvas = Image.open(io.BytesIO(canvas_bytes)).convert("RGBA")
+        canvas_array = np.array(canvas).flatten()
+        self._canvas = canvas_array
 
     async def update_canvas(
         self,
@@ -96,14 +92,13 @@ class DynamicCanvasRenderer:
         Args:
             pixels_data (Dict[str, Any]): Data from the WebSocket connection.
         """
-        async with self._lock:
-            if pixels_data["channel"] == "event:message":
-                await self._paint_squares(self._canvas, pixels_data["data"])
-            elif pixels_data["channel"] == "pixel:message":
-                await self._paint_pixels(self._canvas, pixels_data["data"])
+        if pixels_data["channel"] == "event:message":
+            await self._paint_squares(self._canvas, pixels_data["data"])
+        elif pixels_data["channel"] == "pixel:message":
+            await self._paint_pixels(self._canvas, pixels_data["data"])
 
     async def _paint_squares(
-        self, canvas_array, pixels_data: List[Dict[str, Any]]
+        self, canvas_array, events_data: List[Dict[str, str]]
     ) -> None:
         """
         Paints squares on the canvas based on the given data.
@@ -112,19 +107,31 @@ class DynamicCanvasRenderer:
             canvas_array: The numpy array representing the canvas to be modified.
             pixels_data (List[Dict[str, Any]]): Data from the WebSocket connection.
         """
-        for pixel_data in pixels_data:
-            pixel_id: int = pixel_data["pixel"]
+        for event_data in events_data:
+            event_pixe_data_string = event_data.get("data")
+            if not event_pixe_data_string:
+                raise ValueError("Can't retrieve pixel data")
+
+            event_pixel_data = json.loads(event_pixe_data_string)
+
+            if (
+                "info" not in event_pixel_data
+                or "pixelId" not in event_pixel_data["info"]
+            ):
+                raise ValueError("Missing 'info' or 'pixelId' in event pixel data")
+
+            pixel_id: int = event_pixel_data["info"]["pixelId"]
 
             x, y = self._pixel_id_to_xy(pixel_id)
 
-            square_size = getattr(self, f"{pixel_data['type'].upper()}_SIZE")
+            square_size = getattr(self, f"{event_data['type'].upper()}_SIZE")
             x = x - (square_size // 2)
             y = y - (square_size // 2)
 
             colors = (
                 self.PUMPKIN_COLORS
-                if pixel_data["type"] == "Pumpkin"
-                else [self.DYNAMITE_COLOR] * (self.DYNAMITE_SIZE * self.DYNAMITE_SIZE)
+                if event_data["type"] == "Pumpkin"
+                else self.DYNAMITE_COLORS
             )
 
             for i, color in enumerate(colors):
@@ -184,13 +191,12 @@ class DynamicCanvasRenderer:
         if pixel_id > self.CANVAS_SIZE * self.CANVAS_SIZE:
             return
 
-        async with self._lock:
-            rgb_color = self._hex_to_rgb(hex_color)
-            pixel_index = (pixel_id - 1) * 4
-            self._canvas[pixel_index] = rgb_color[0]
-            self._canvas[pixel_index + 1] = rgb_color[1]
-            self._canvas[pixel_index + 2] = rgb_color[2]
-            self._canvas[pixel_index + 3] = 255
+        rgb_color = self._hex_to_rgb(hex_color)
+        pixel_index = (pixel_id - 1) * 4
+        self._canvas[pixel_index] = rgb_color[0]
+        self._canvas[pixel_index + 1] = rgb_color[1]
+        self._canvas[pixel_index + 2] = rgb_color[2]
+        self._canvas[pixel_index + 3] = 255
 
     @property
     def get_canvas(self) -> np.ndarray:
@@ -217,7 +223,7 @@ class DynamicCanvasRenderer:
         return red, green, blue
 
     @lru_cache(maxsize=256)
-    def rgba_to_hex(self, rgba) -> str:
+    def rgba_to_hex(self, rgba: Tuple[int, int, int, int]) -> str:
         r, g, b, a = rgba
         hex_color = f"#{r:02X}{g:02X}{b:02X}"
         return hex_color
