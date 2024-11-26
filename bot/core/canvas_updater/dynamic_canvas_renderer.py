@@ -1,11 +1,13 @@
 import io
-from functools import lru_cache
 import json
+from functools import lru_cache
 from typing import Any, Dict, List, Tuple
 
 import numpy as np
 from PIL import Image
 from typing_extensions import Self
+
+from bot.utils.logger import dev_logger, logger
 
 
 class DynamicCanvasRenderer:
@@ -77,82 +79,107 @@ class DynamicCanvasRenderer:
     def __init__(self) -> None:
         self._canvas: np.ndarray
 
-    async def set_canvas(self, canvas_bytes: bytes) -> None:
+    def set_canvas(self, canvas_bytes: bytes) -> None:
         canvas = Image.open(io.BytesIO(canvas_bytes)).convert("RGBA")
         canvas_array = np.array(canvas).flatten()
         self._canvas = canvas_array
 
-    async def update_canvas(
-        self,
-        pixels_data: Dict[str, Any],
-    ) -> None:
+    def update_canvas(self, pixels_data: Dict[str, Any]) -> None:
         """
-        Updates the canvas with new data from the WebSocket connection only.
+        Update the canvas with the given pixels data.
 
         Args:
             pixels_data (Dict[str, Any]): Data from the WebSocket connection.
         """
-        if pixels_data["channel"] == "event:message":
-            await self._paint_squares(self._canvas, pixels_data["data"])
-        elif pixels_data["channel"] == "pixel:message":
-            await self._paint_pixels(self._canvas, pixels_data["data"])
+        channel = pixels_data["channel"]
 
-    async def _paint_squares(
-        self, canvas_array, events_data: List[Dict[str, str]]
-    ) -> None:
+        if channel == "event:message":
+            self._process_event_message(pixels_data["data"])
+        elif channel == "pixel:message":
+            self.handle_pixel_message(pixels_data["data"])
+
+    def _process_event_message(self, events: List[Dict[str, Any]]) -> None:
+        for event in events:
+            event_type = event["type"]
+            if event_type in ["Dynamite", "Pumpkin"]:
+                self._paint_square(event)
+            elif event_type == "Pixanos":
+                logger.info("DynamicCanvasRenderer | Pixanos event received")
+                dev_logger.info(f"Received Pixanos event: {event}")
+                self._process_pixanos_event(event["payload"])
+            else:
+                print(event)
+
+    def _process_pixanos_event(self, pixanos_data: Dict[str, Any]) -> None:
         """
-        Paints squares on the canvas based on the given data.
+        Processes Pixanos event data.
 
         Args:
-            canvas_array: The numpy array representing the canvas to be modified.
-            pixels_data (List[Dict[str, Any]]): Data from the WebSocket connection.
+            pixanos_data (Dict[str, Any]): Data from the WebSocket connection.
         """
-        for event_data in events_data:
-            event_pixe_data_string = event_data.get("data")
-            if not event_pixe_data_string:
-                raise ValueError("Can't retrieve pixel data")
+        info = pixanos_data["info"]
+        self._pixanos_repaint(
+            info["seed"], self.CANVAS_SIZE, info["percentage"], info["color"]
+        )
 
-            event_pixel_data = json.loads(event_pixe_data_string)
+    def handle_pixel_message(self, pixel_data: Dict[str, List[int]]) -> None:
+        """
+        Handles pixel messages from the WebSocket connection.
 
-            if (
-                "info" not in event_pixel_data
-                or "pixelId" not in event_pixel_data["info"]
-            ):
-                raise ValueError("Missing 'info' or 'pixelId' in event pixel data")
+        Args:
+            pixel_data (Dict[str, Any]): Data from the WebSocket connection.
+        """
+        self._paint_pixels(pixel_data)
 
-            pixel_id: int = event_pixel_data["info"]["pixelId"]
+    def _paint_square(self, event_data: Dict[str, str]) -> None:
+        """
+        Paints square on the canvas based on the given data.
 
-            x, y = self._pixel_id_to_xy(pixel_id)
+        Args:
+            event_data (Dict[str, str]): Data from the WebSocket connection.
+        """
+        event_pixel_data_string = event_data.get("data")
+        if not event_pixel_data_string:
+            raise ValueError("Can't retrieve pixel data")
 
-            square_size = getattr(self, f"{event_data['type'].upper()}_SIZE")
-            x = x - (square_size // 2)
-            y = y - (square_size // 2)
+        event_pixel_data = json.loads(event_pixel_data_string)
 
-            colors = (
-                self.PUMPKIN_COLORS
-                if event_data["type"] == "Pumpkin"
-                else self.DYNAMITE_COLORS
-            )
+        if "info" not in event_pixel_data or "pixelId" not in event_pixel_data["info"]:
+            raise ValueError("Missing 'info' or 'pixelId' in event pixel data")
 
-            for i, color in enumerate(colors):
-                offset_x = i % square_size
-                offset_y = i // square_size
+        pixel_id: int = event_pixel_data["info"]["pixelId"]
 
-                px = x + offset_x
-                py = y + offset_y
+        x, y = self._pixel_id_to_xy(pixel_id)
 
-                if px < 0 or py < 0 or px >= self.CANVAS_SIZE or py >= self.CANVAS_SIZE:
-                    continue
+        square_size = getattr(self, f"{event_data['type'].upper()}_SIZE")
+        x = x - (square_size // 2)
+        y = y - (square_size // 2)
 
-                rgb_color = self._hex_to_rgb(color)
+        colors = (
+            self.PUMPKIN_COLORS
+            if event_data["type"] == "Pumpkin"
+            else self.DYNAMITE_COLORS
+        )
 
-                pixel_index = (px + py * self.CANVAS_SIZE) * 4
-                canvas_array[pixel_index] = rgb_color[0]
-                canvas_array[pixel_index + 1] = rgb_color[1]
-                canvas_array[pixel_index + 2] = rgb_color[2]
-                canvas_array[pixel_index + 3] = 255
+        for i, color in enumerate(colors):
+            offset_x = i % square_size
+            offset_y = i // square_size
 
-    async def _paint_pixels(self, canvas_array, pixels_data: Dict[str, Any]) -> None:
+            px = x + offset_x
+            py = y + offset_y
+
+            if px < 0 or py < 0 or px >= self.CANVAS_SIZE or py >= self.CANVAS_SIZE:
+                continue
+
+            rgb_color = self._hex_to_rgb(color)
+
+            pixel_index = (px + py * self.CANVAS_SIZE) * 4
+            self._canvas[pixel_index] = rgb_color[0]
+            self._canvas[pixel_index + 1] = rgb_color[1]
+            self._canvas[pixel_index + 2] = rgb_color[2]
+            self._canvas[pixel_index + 3] = 255
+
+    def _paint_pixels(self, pixels_data: Dict[str, List[int]]) -> None:
         """
         Paints individual pixels on the canvas based on the provided data.
 
@@ -167,22 +194,12 @@ class DynamicCanvasRenderer:
             if hex_color == "#171F2A":
                 continue
 
-            rgb_color = self._hex_to_rgb(hex_color)
-
             for pixel_id in pixels_id:
-                if pixel_id > self.CANVAS_SIZE * self.CANVAS_SIZE:
-                    continue
+                self.paint_pixel(pixel_id, hex_color)
 
-                pixel_index = (pixel_id - 1) * 4
-                canvas_array[pixel_index] = rgb_color[0]
-                canvas_array[pixel_index + 1] = rgb_color[1]
-                canvas_array[pixel_index + 2] = rgb_color[2]
-                canvas_array[pixel_index + 3] = 255
-
-    async def set_pixel(self, pixel_id: int, hex_color: str) -> None:
+    def paint_pixel(self, pixel_id: int, hex_color: str) -> None:
         """
-        Sets a single pixel on the canvas to the specified color.
-        Using only when YOU paint on the canvas, not from the WebSocket data
+        Paints a single pixel on the canvas based on the provided pixel ID and hex color.
 
         Args:
             pixel_id (int): The ID of the pixel to be set.
@@ -197,6 +214,52 @@ class DynamicCanvasRenderer:
         self._canvas[pixel_index + 1] = rgb_color[1]
         self._canvas[pixel_index + 2] = rgb_color[2]
         self._canvas[pixel_index + 3] = 255
+
+    def _pixanos_repaint(
+        self, seed: int, canvas_width: int, percentage: int, hex_color: str
+    ):
+        """
+        Repaints a specified percentage of pixels on the canvas using a given color.
+
+        This function selects a random subset of pixels on the canvas determined by
+        the given percentage and repaints them with the specified color. The pixel
+        selection is based on a seeded random generator to ensure reproducibility.
+
+        Args:
+            seed (int): The seed value for the random number generator, ensuring
+                        consistent pixel selection across different runs.
+            canvas_width (int): The width of the canvas, which is assumed to be square.
+            percentage (int): The percentage of total pixels to be repainted.
+            color (str): The hex color code to be used for repainting the selected pixels.
+        """
+
+        def create_random_generator(seed_value):
+            multiplier = 1664525
+            increment = 1013904223
+            modulus = 2**32
+            state = seed_value & 0xFFFFFFFF
+
+            def random():
+                nonlocal state
+                state = (multiplier * state + increment) % modulus
+                return state / modulus
+
+            return random
+
+        canvas_height = canvas_width
+        total_pixels = canvas_width * canvas_height
+        pixels_to_repaint = int(total_pixels * (percentage / 100))
+
+        random_generator = create_random_generator(seed)
+        selected_pixels = [i + 1 for i in range(pixels_to_repaint)]
+
+        for current_pixel in range(pixels_to_repaint + 1, total_pixels + 1):
+            random_index = int(random_generator() * current_pixel) + 1
+            if random_index <= pixels_to_repaint:
+                selected_pixels[random_index - 1] = current_pixel
+
+        for pixel_id in selected_pixels:
+            self.paint_pixel(pixel_id, hex_color)
 
     @property
     def get_canvas(self) -> np.ndarray:
