@@ -729,7 +729,7 @@ class NotPXBot:
         )
 
         self._charges -= 1
-        await self._canvas_renderer.set_pixel(canvas_pixel_id, template_pixel_hex)
+        self._canvas_renderer.paint_pixel(canvas_pixel_id, template_pixel_hex)
 
         response.raise_for_status()
         response_json = await response.json()
@@ -831,7 +831,7 @@ class NotPXBot:
                     # else:
                     #     consecutive_zero_rewards = 0
 
-                    await asyncio.sleep(random.uniform(0.05, 0.1))
+                    await asyncio.sleep(random.uniform(0.6, 1.2))
 
         except Exception:
             if attempts <= 3:
