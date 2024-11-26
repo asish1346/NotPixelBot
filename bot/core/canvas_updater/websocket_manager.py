@@ -374,11 +374,11 @@ class WebSocketManager:
             self.__connection_attempts = 1
 
         if isinstance(message, bytes):
-            await self._canvas_renderer.set_canvas(message)
+            self._canvas_renderer.set_canvas(message)
             self._is_canvas_set = True
             return
 
-        await self._canvas_renderer.update_canvas(message)
+        self._canvas_renderer.update_canvas(message)
 
     async def _handle_websocket_auth(self) -> None:
         if not self._websocket or self._websocket.closed:
