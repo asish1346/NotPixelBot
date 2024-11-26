@@ -169,10 +169,10 @@ class NotPXBot:
             country = response_json.get("country", "Not Found")
 
             logger.info(
-                f"{self.session_name} | Proxy connected | IP: {ip} | Country: {country}"
+                f"{self.session_name} |\033[92m Proxy connected \033[0m| IP: {ip} | Country: {country}"
             )
         except Exception:
-            raise Exception(f"{self.session_name} | Proxy error | {proxy}")
+            raise Exception(f"{self.session_name} |\033[31m Proxy error | {proxy}\033[0m")
 
     async def _perform_notpx_actions(
         self, session: aiohttp.ClientSession, telegram_client
@@ -249,7 +249,7 @@ class NotPXBot:
             ):
                 await self._upgrade_boosts(session)
             else:
-                logger.info(f"{self.session_name} | All boosts are maxed out")
+                logger.info(f"{self.session_name} | All Bosts Are Upgraded")
 
         while not self.websocket_manager.is_canvas_set:
             await asyncio.sleep(2)
@@ -349,7 +349,7 @@ class NotPXBot:
         except Exception:
             if attempts <= 3:
                 logger.warning(
-                    f"{self.session_name} | Failed to send tganalytics event, retrying in {self.RETRY_DELAY} seconds | Attempts: {attempts}"
+                    f"{self.session_name} | Failed to send tganalytics, retrying in {self.RETRY_DELAY} seconds | Attempts: {attempts}"
                 )
                 await asyncio.sleep(self.RETRY_DELAY)
                 return await self._send_tganalytics_event(
@@ -449,7 +449,7 @@ class NotPXBot:
             claimed_px = response_json.get("claimed")
 
             logger.info(
-                f"{self.session_name} | Successfully claimed {round(claimed_px, 2)} px"
+                f"{self.session_name} | Successfully claimed \033[95m{round(claimed_px, 2)}\033[0m PX"
             )
 
             plausible_payload = await self._create_plausible_payload(
@@ -464,7 +464,7 @@ class NotPXBot:
 
             if attempts <= 3:
                 logger.warning(
-                    f"{self.session_name} | Failed to claim px, retrying in {self.RETRY_DELAY} seconds | Attempts: {attempts}"
+                        f"{self.session_name} |\033[33m Failed to claim px, retrying in {self.RETRY_DELAY} seconds | Attempts: {attempts}\033[0m"
                 )
                 await asyncio.sleep(self.RETRY_DELAY)
                 return await self._claim_px(session=session, attempts=attempts + 1)
@@ -511,7 +511,7 @@ class NotPXBot:
             )
             response.raise_for_status()
 
-            logger.info(f"{self.session_name} | Successfully set template")
+            logger.info(f"{self.session_name} |\033[32m Successfully set template\033[0m")
 
             plausible_payload = await self._create_plausible_payload(
                 "https://app.notpx.app/"
@@ -612,7 +612,7 @@ class NotPXBot:
                     self._quests_to_complete.append(quest)
 
             logger.info(
-                f"{self.session_name} | Successfully logged in | Balance: {round(self.balance, 2)} | League: {self.league.capitalize()}"
+                f"{self.session_name} | Successfully logged in | Balance:\033[94m {round(self.balance, 2)}\033[0m | League: \033[33m{self.league.capitalize()}\033[0m"
             )
 
         except Exception:
@@ -739,13 +739,13 @@ class NotPXBot:
         if round(new_balance, 2) > round(self.balance, 2):
             balance_increase = new_balance - self.balance
             logger.info(
-                f"{self.session_name} | Successfully painted pixel | +{round(balance_increase, 2)} PX | Charge remaining: {self._charges} | Current balance: {round(new_balance, 2)} PX"
+                    f"{self.session_name} | Successfully painted pixel |\033[32m +{round(balance_increase, 2)}\033[0m PX | Current balance: \033[95m{round(self.balance, 2)}\033[0m PX"
             )
             self.balance = new_balance
             return
 
         logger.warning(
-            f"{self.session_name} | Painted pixel, but balance didn't increase | Current balance: {round(self.balance, 2)} PX | Charge remaining: {self._charges} | Current balance: {round(new_balance, 2)} PX"
+                 f"{self.session_name} | Sucessfully Painted pixel |\033[91m +0.0\033[0m PX | Current balance: \033[95m{round(self.balance, 2)}\033[0m PX"
         )
 
     async def _paint_pixels(
@@ -919,7 +919,7 @@ class NotPXBot:
                             task_value
                         ):
                             logger.info(
-                                f"{self.session_name} | Completed task: {task_value}"
+                                f"{self.session_name} | Completed task: \033[95m{task_value}\033[0m"
                             )
                         else:
                             raise Exception(
@@ -1026,7 +1026,7 @@ class NotPXBot:
                 response_json = await response.json()
                 if response_json.get("secretWord").get("success"):
                     logger.info(
-                        f"{self.session_name} | Completed secret word quest | Reward: {response_json.get('secretWord').get('reward')}"
+                        f"{self.session_name} | Completed secret word quest | Reward: \033[92m{response_json.get('secretWord').get('reward')}\033[0m"
                     )
                 else:
                     raise Exception(
