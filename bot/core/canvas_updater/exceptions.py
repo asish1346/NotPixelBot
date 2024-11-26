@@ -46,6 +46,12 @@ class SessionErrors(Exception):
 
         def __init__(self, message: str = "No active session") -> None:
             super().__init__(message)
+    
+    class MaxSwitchAttemptsError(Exception):
+        """Raised when the maximum number of switch attempts has been reached."""
+
+        def __init__(self, message: str = "Max switch attempts reached") -> None:
+            super().__init__(message)
 
 
 class TokenError(Exception):
