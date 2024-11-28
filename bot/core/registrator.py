@@ -1,93 +1,90 @@
-import traceback
-from urllib.parse import urlparse
-
-from pyrogram.client import Client
-
-from bot.config.config import settings
-from bot.utils.json_manager import JsonManager
-from bot.utils.logger import dev_logger, logger
-from bot.utils.ua_generator import TelegramUserAgentGenerator
+from better_proxy import Proxy
+from pyrogram import Client
+from bot.config import settings, telegram_versions
+from bot.core.agents import generate_random_user_agent
+from bot.utils import logger
+from bot.utils.file_manager import save_to_json
 
 
-async def register_sessions(session_name: str | None = None) -> None:
-    try:
-        API_ID = settings.API_ID
-        API_HASH = settings.API_HASH
+async def register_sessions(proxy_chain = None) -> None:
+    API_ID = settings.API_ID
+    API_HASH = settings.API_HASH
 
-        if not API_ID or not API_HASH:
-            raise ValueError("API_ID and API_HASH must be set in .env file")
+    if not API_ID or not API_HASH:
+        raise ValueError("API_ID and API_HASH not found in the .env file.")
 
-        if not session_name:
-            session_name = input("Enter session name (Enter to exit): ")
+    session_name = input('\nEnter the session name (press Enter to exit): ')
 
-        if not session_name:
-            return
+    if not session_name:
+        return None
 
-        raw_proxy = input(
-            "Enter proxy in format type://username:password@ip:port (Enter to skip): "
-        )
-        
-        user_agent_generator = TelegramUserAgentGenerator()
-        user_agent = user_agent_generator.generate()
+    user_agent, android_version, android_device, app_version_ = generate_random_user_agent()
+    app_version = f"Telegram Android {app_version_}"
 
-        session = await get_telegram_client(
-            session_name=session_name, user_agent=user_agent, raw_proxy=raw_proxy
-        )
+    if proxy_chain:
+        raw_proxy = proxy_chain.get_next_proxy()
+    else:
+        raw_proxy = input("Input the proxy in the format type://user:pass@ip:port (press Enter to use without proxy): ")
 
-        async with session:
-            user_data = await session.get_me()
+    session = await get_tg_client(session_name=session_name, android_version=android_version,
+                                  android_device=android_device, app_version=app_version, proxy=raw_proxy)
+    async with session:
+        user_data = await session.get_me()
 
-        json_manager = JsonManager()
-
-        json_manager.add_account(
-            session_name=session_name, user_agent=user_agent, proxy=raw_proxy
-        )
-
-        logger.info(
-            f"Session {session_name} registered | User: {user_data.username} | User ID: {user_data.id}"
-        )
-    except Exception as error:
-        logger.error(f"{error or 'Something went wrong'}")
-        dev_logger.error(f"Error while registering session: {traceback.format_exc()}")
+    save_to_json(f'sessions/accounts.json',
+                 dict_={
+                    "session_name": session_name,
+                    "user_agent": user_agent,
+                    "proxy": raw_proxy if raw_proxy else "",
+                    "android_device": android_device,
+                    "android_version": android_version,
+                    "app_version": app_version
+                 })
+    logger.success(f'Session added successfully @{user_data.username} | {user_data.first_name} {user_data.last_name}')
 
 
-async def get_telegram_client(
-    session_name: str, user_agent: str, raw_proxy: str | None = None
-) -> Client:
-    try:
-        if not session_name:
-            raise ValueError("Session name cannot be empty")
+async def get_tg_client(session_name: str,
+                        proxy: str | None, android_version: str = "", android_device: str = "",
+                        app_version: str = "") -> Client:
+    if not session_name:
+        raise FileNotFoundError(f"Not found session {session_name}")
 
-        if not user_agent:
-            raise ValueError("User agent cannot be empty")
+    if not settings.API_ID or not settings.API_HASH:
+        raise ValueError("API_ID and API_HASH not found in the .env file.")
 
-        if not settings.API_ID or not settings.API_HASH:
-            raise ValueError("API_ID and API_HASH must be set in .env file")
+    # Create a Proxy object from the proxy string
+    if proxy:
+        proxy = Proxy.from_str(proxy=proxy)
+    else:
+        proxy = None
 
-        parsed_proxy = urlparse(raw_proxy) if raw_proxy else None
+    # Form a dictionary with the necessary parameters
+    proxy_dict = {
+        "scheme": proxy.protocol,
+        "username": proxy.login,
+        "password": proxy.password,
+        "hostname": proxy.host,
+        "port": proxy.port
+    } if proxy else None
 
-        proxy_dict = (
-            {
-                "scheme": parsed_proxy.scheme,
-                "username": parsed_proxy.username,
-                "password": parsed_proxy.password,
-                "hostname": parsed_proxy.hostname,
-                "port": parsed_proxy.port,
-            }
-            if parsed_proxy
-            else None
-        )
+    # Client parameters
+    client_params = {
+        "name": session_name,
+        "api_id": settings.API_ID,
+        "api_hash": settings.API_HASH,
+        "workdir": "sessions/",
+        "sleep_threshold": 123
+    }
 
-        telegram_client = Client(
-            name=session_name,
-            api_id=settings.API_ID,
-            api_hash=settings.API_HASH,
-            proxy=proxy_dict,  # type: ignore
-            workdir="sessions",
-        )
+    if app_version:
+        client_params["app_version"] = app_version
+    if android_device:
+        client_params["device_model"] = android_device
+    if android_version:
+        client_params["system_version"] = f"Android {android_version}"
+    if proxy_dict:
+        client_params["proxy"] = proxy_dict
 
-        return telegram_client
-    except Exception as error:
-        raise Exception(
-            f"Error while getting telegram client: {error or 'Unknown error'}"
-        )
+    tg_client = Client(**client_params)
+
+    return tg_client
