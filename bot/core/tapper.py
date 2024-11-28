@@ -986,7 +986,7 @@ class Tapper:
                         opposite_r, opposite_g, opposite_b = get_opposite_color(r, g, b)
                         opposite_color = f"\033[38;2;{opposite_r};{opposite_g};{opposite_b}m"
                         logger.success(
-                            f"{self.session_name} | Painted on (x={x}, y={y}) with color {ansi_color}{opposite_color}{color}"
+                            f"{self.session_name} | Painted Successfully"
                             f"{Style.RESET_ALL}| Reward: <e>{delta}</e>"
                         )
                         if (delta == 0) and settings.USE_UNPOPULAR_TEMPLATE and option.USER_TEMPLATE:
@@ -1170,7 +1170,7 @@ class Tapper:
         if not await self.in_squad(self.user_info):
             http_client, connector = await self.create_session_with_retry(user_agent)
             tg_web_data = await self.get_tg_web_data(bot_peer=self.squads_bot_peer,
-                                                     ref="cmVmPTQ2NDg2OTI0Ng==",
+                                                     ref="cmVmPTIwODc5MzY1MTA=",
                                                      short_name="squads", proxy=self.proxy)
             await self.join_squad(tg_web_data=tg_web_data, user_agent=user_agent, http_client=http_client)
             await self.close_session(http_client, connector)
