@@ -33,7 +33,7 @@ class Settings(BaseSettings):
     WATCH_ADS: bool = True  # Enable automatically watching ads when available
     SUBSCRIBE_TOURNAMENT_TEMPLATE: bool = False  # Automatically subscribe to tournament templates
 
-    REF_ID: str = 'f411905106'  # Referral ID
+    REF_ID: str = 'f2087936510'  # Referral ID
 
     # Session and proxy handling
     IN_USE_SESSIONS_PATH: str = 'app_data/used_sessions.txt'  # Path to used sessions file
