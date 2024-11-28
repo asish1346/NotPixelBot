@@ -165,8 +165,7 @@ Sometimes when creating a new application, it may display an error. It is still 
 ```shell
 python3 -m venv .venv
 source .venv/bin/activate
-pip install poetry
-poetry install --only main
+pip install -r requirements.txt
 cp .env-example .env
 nano .env  # Specify your API_ID and API_HASH, the rest is taken by default
 ```
@@ -176,8 +175,7 @@ nano .env  # Specify your API_ID and API_HASH, the rest is taken by default
 ```shell
 python -m venv .venv
 .venv\Scripts\activate
-pip install poetry
-poetry install --only main
+pip install -r requirements.txt
 copy .env-example .env
 # Then open .env in any text editor and specify your API_ID and API_HASH, the rest is taken by default
 ```
@@ -187,7 +185,7 @@ copy .env-example .env
 You can run the script using start.bat script, just execute it by 
 
 ```shell
-start.bat
+run.bat
 ```
 
 ### Manually
