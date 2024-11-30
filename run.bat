@@ -2,13 +2,13 @@
 title NotPixel
 if not exist venv (
     echo Creating virtual environment...
-    python -m venv venv
+    python -m venv .venv
 )
 
 echo Activating virtual environment...
-call venv\Scripts\activate
+call .venv\Scripts\activate
 
-if not exist venv\Lib\site-packages\installed (
+if not exist .venv\Lib\site-packages\installed (
     if exist requirements.txt (
 		echo installing wheel for faster installing
 		pip install wheel
