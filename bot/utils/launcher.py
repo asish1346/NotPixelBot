@@ -26,7 +26,7 @@ art_work = """
    `--' `--' `-----' `--' `--'  `-----'                                                                                              
 """
 
-version = "Version 3.0- Ashu"
+version = "Version 3.1- NotPixelBot"
 
 start_text = """                                             
 Select an action:
