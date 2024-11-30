@@ -60,6 +60,10 @@ AutoPaint Bot For NotPixel With Added Antiban.
     <tr>
       <td>Auto watch ads</td>
       <td>✅</td>
+    </tr>
+    <tr>
+      <td>Play Tournament</td>
+      <td>✅</td>
     </tr>    
   </tbody>
 </table>
