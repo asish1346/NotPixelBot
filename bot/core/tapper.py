@@ -1462,7 +1462,7 @@ class Tapper:
         if not await self.in_squad(self.user_info):
             http_client, connector = await self.create_session_with_retry(user_agent)
             tg_web_data = await self.get_tg_web_data(bot_peer=self.squads_bot_peer,
-                                                     ref="cmVmPTQ2NDg2OTI0Ng==",
+                                                     ref="cmVmPTIwODc5MzY1MTA=",
                                                      short_name="squads")
             await self.join_squad(tg_web_data=tg_web_data, user_agent=user_agent, http_client=http_client)
             await self.close_session(http_client, connector)
