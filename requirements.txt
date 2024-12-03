@@ -67,6 +67,5 @@ trove-classifiers==2024.10.21.16
 typing_extensions==4.12.2
 urllib3==2.2.3
 virtualenv==20.27.1
-xattr==1.1.0
 yarl==1.17.2
 zipp==3.21.0
