@@ -37,8 +37,11 @@ class NotPXBot:
     ) -> None:
         self.telegram_client: Client = telegram_client
         self.session_name: str = telegram_client.name
-        self.websocket_manager: WebSocketManager = websocket_manager
+        self._websocket_manager: WebSocketManager = websocket_manager
+        self._canvas_renderer: DynamicCanvasRenderer = DynamicCanvasRenderer()
+        self._notpx_api_checker: NotPXAPIChecker = NotPXAPIChecker()
         self._headers = self._create_headers()
+        self.is_template_reselected: bool = False
         self.template_id: int = 0  # defiend in _set_template
         self.template_url: str = ""  # defiend in _set_template
         self.template_x: int = 0  # defiend in _set_template
@@ -65,7 +68,6 @@ class NotPXBot:
             },
             "energyLimit": {2: 5, 3: 100, 4: 200, 5: 300, 6: 400, 7: 10},
         }
-        self._canvas_renderer: DynamicCanvasRenderer = DynamicCanvasRenderer()
         self._tasks_list: Dict[str, Dict[str, str]] = {
             "x_tasks_list": {
                 "x:notpixel": "notpixel",
@@ -91,7 +93,6 @@ class NotPXBot:
         }
         self._quests_list: List[str] = []
         self._quests_to_complete: List[str] = []
-        self._notpx_api_checker: NotPXAPIChecker = NotPXAPIChecker()
 
     def _create_headers(self) -> Dict[str, Dict[str, str]]:
         base_headers = {
@@ -237,7 +238,7 @@ class NotPXBot:
 
         await self._get_status(session)
 
-        await self.websocket_manager.add_session(
+        await self._websocket_manager.add_session(
             notpx_headers=self._headers["notpx"],
             websocket_headers=self._headers["websocket"],
             image_notpx_headers=self._headers["notpx"],
@@ -257,7 +258,7 @@ class NotPXBot:
             else:
                 logger.info(f"{self.session_name} | All boosts are maxed out")
 
-        while not self.websocket_manager.is_canvas_set:
+        while not self._websocket_manager.is_canvas_set:
             await asyncio.sleep(2)
 
         round_period = await self._get_round_period(session)
@@ -272,6 +273,13 @@ class NotPXBot:
             round_period["EndTime"].replace("Z", "+00:00")
         ) - timedelta(minutes=settings.ROUND_END_TIME_DELTA_MINUTES)
 
+        is_round_started = now >= datetime.fromisoformat(
+            round_period["StartTime"].replace("Z", "+00:00")
+        )
+        is_round_ended = now >= datetime.fromisoformat(
+            round_period["EndTime"].replace("Z", "+00:00")
+        )
+        
         is_after_start_time = now >= round_start_time
         is_before_end_time = now < round_end_time
 
@@ -289,13 +297,33 @@ class NotPXBot:
                     f"{self.session_name} | Setting up next iteration sleep before next round: {minutes} minutes {seconds} seconds"
                 )
 
+        is_round_active = is_round_started and not is_round_ended
+
         should_paint_pixels = (
             settings.PAINT_PIXELS and is_after_start_time and is_before_end_time
         )
 
         template_available = await self._check_tournament_my(session)
 
-        if not template_available:
+        if not template_available or (
+            settings.RESELECT_TOURNAMENT_TEMPLATE
+            and not self.is_template_reselected
+            and not is_round_active
+        ):
+            if settings.RESELECT_TOURNAMENT_TEMPLATE:
+                logger.info(f"{self.session_name} | Re-selecting tournament template")
+                self.is_template_reselected = True
+                async with aiofiles.open(".env", "r", encoding="utf-8") as file:
+                    lines = await file.readlines()
+
+                async with aiofiles.open(".env", "w", encoding="utf-8") as file:
+                    for line in lines:
+                        if "RESELECT_TOURNAMENT_TEMPLATE" in line:
+                            line = "RESELECT_TOURNAMENT_TEMPLATE=False\n"
+                        await file.write(line)
+            else:
+                logger.info(f"{self.session_name} | Selecting tournament template")
+
             await self._set_tournament_template(session, auth_url)
 
         if should_paint_pixels:
@@ -1108,21 +1136,12 @@ class NotPXBot:
 
             async with aiofiles.open("templates_pool.json", "r") as file:
                 templates_pool = json.loads(await file.read())
-                template_ids = templates_pool.get("ids")
+                template_ids = templates_pool.get("ids", [])
 
-            if not template_ids:
-                random_templates = await session.get(
-                    "https://notpx.app/api/v1/tournament/template/list/random?limit=16",
-                    headers=self._headers["notpx"],
-                    ssl=settings.ENABLE_SSL,
-                )
-                random_templates.raise_for_status()
-                random_templates_json = await random_templates.json()
-
-                random_template = random.choice(random_templates_json.get("list", []))
-                template_id = random_template.get("id")
-            else:
+            if template_ids:
                 template_id = random.choice(template_ids)
+            else:
+                template_id = await self._get_random_approved_template_id(session)
 
             response = await session.put(
                 f"https://notpx.app/api/v1/tournament/template/subscribe/{template_id}",
@@ -1153,6 +1172,28 @@ class NotPXBot:
             raise Exception(
                 f"{self.session_name} | Max retry attempts reached while setting tournament template"
             )
+
+    async def _get_random_approved_template_id(
+        self, session: aiohttp.ClientSession
+    ) -> int:
+        while True:
+            random_templates = await session.get(
+                "https://notpx.app/api/v1/tournament/template/list/random?limit=16",
+                headers=self._headers["notpx"],
+                ssl=settings.ENABLE_SSL,
+            )
+            random_templates.raise_for_status()
+            random_templates_json = await random_templates.json()
+
+            random_template_list = random_templates_json.get("list", [])
+            random.shuffle(random_template_list)
+
+            for template in random_template_list:
+                is_template_approved = template.get("approved", False)
+                if is_template_approved:
+                    return template.get("id")
+
+            await asyncio.sleep(random.uniform(1.5, 3))
 
     async def _quest_completion(
         self, session: aiohttp.ClientSession, attempts: int = 1
