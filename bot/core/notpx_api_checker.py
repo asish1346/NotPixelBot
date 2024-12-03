@@ -121,6 +121,7 @@ class NotPXAPIChecker:
                 "/tournament/user/results",
                 "/transactions/start",
                 "/users/me",
+                "/users/me/revshare",
                 "/users/mypixels/count",
                 "/users/mypixels/sold?offset=${n}&limit=${s}",
                 "/users/mypixels?offset=${n}&limit=${s}",
