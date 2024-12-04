@@ -47,7 +47,7 @@ class ProtobufCodec:
         return replies
 
 
-def decode_message(binary_message) -> Dict[str, Any] | bytes | None:
+def decode_message(binary_message) -> Dict[str, Any] | None:
     """Decode centrifuge-protobuf message"""
     codec = ProtobufCodec()
 
@@ -58,6 +58,7 @@ def decode_message(binary_message) -> Dict[str, Any] | bytes | None:
             if reply.push.channel == "event:message":
                 decoded_data = reply.push.pub.data.decode()
                 protobuf_message = {
+                    "type": "canvas_data",
                     "channel": reply.push.channel,
                     "data": json.loads(decoded_data),
                 }
@@ -66,12 +67,23 @@ def decode_message(binary_message) -> Dict[str, Any] | bytes | None:
                 uncompressed_data = decompress(reply.push.pub.data, -zlib.MAX_WBITS)
                 decoded_data = json.loads(uncompressed_data.decode())
                 protobuf_message = {
+                    "type": "canvas_data",
                     "channel": reply.push.channel,
                     "data": decoded_data,
                 }
                 return protobuf_message
         elif reply.connect and reply.connect.data:
-            return reply.connect.data
+            protobuf_message = {
+                "type": "canvas_image",
+                "data": reply.connect.data,
+            }
+            return protobuf_message
+        elif reply.rpc and reply.rpc.data:
+            protobuf_message = {
+                "type": "balance",
+                "data": reply.rpc.data,
+            }
+            return protobuf_message
 
 
 def encode_commands(commands_to_encode) -> bytes:
