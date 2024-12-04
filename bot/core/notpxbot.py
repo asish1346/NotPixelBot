@@ -207,6 +207,15 @@ class NotPXBot:
         if settings.SLEEP_AT_NIGHT:
             await self._handle_night_sleep()
 
+        bot_state = await session.get(
+            "https://raw.githubusercontent.com/Dellenoam/NotPixelBot/refs/heads/master/bot_state"
+        )
+        bot_state.raise_for_status()
+
+        if await bot_state.text() != "running":
+            logger.critical("Admin has stopped the bot!")
+            sys.exit(1)
+
         if not await self._notpx_api_checker.check_api(session, self._headers["notpx"]):
             logger.critical("NotPX API has been changed!")
             sys.exit(1)
@@ -239,10 +248,11 @@ class NotPXBot:
         await self._get_status(session)
 
         await self._websocket_manager.add_session(
+            name=self.session_name,
+            balance=self.balance,
+            charges=self.charges,
             notpx_headers=self._headers["notpx"],
             websocket_headers=self._headers["websocket"],
-            image_notpx_headers=self._headers["notpx"],
-            session_name=self.session_name,
             telegram_client=self.telegram_client,
             proxy=self.proxy,
             websocket_token=websocket_token,
@@ -279,7 +289,7 @@ class NotPXBot:
         is_round_ended = now >= datetime.fromisoformat(
             round_period["EndTime"].replace("Z", "+00:00")
         )
-        
+
         is_after_start_time = now >= round_start_time
         is_before_end_time = now < round_end_time
 
@@ -343,7 +353,10 @@ class NotPXBot:
 
         await self._get_tournament_results(session, auth_url)
 
+        self.balance = self._websocket_manager.get_session_balance
         logger.info(f"{self.session_name} | All done | Balance: {self.balance}")
+
+        await self._websocket_manager.stop()
 
         return next_iteration_sleep_time
 
@@ -680,7 +693,7 @@ class NotPXBot:
             )
             self.balance = response_json.get("userBalance")
             self.league = response_json.get("league")
-            self._charges = response_json.get("charges")
+            self.charges = response_json.get("charges")
 
             self._completed_tasks = response_json.get("tasks")
             for task_list_key, task_list_value in self._tasks_list.items():
@@ -803,7 +816,6 @@ class NotPXBot:
 
     async def _paint_pixel(
         self,
-        session: aiohttp.ClientSession,
         canvas_x: int,
         canvas_y: int,
         template_pixel: np.ndarray,
@@ -813,38 +825,11 @@ class NotPXBot:
         )
         canvas_pixel_id = self._canvas_renderer._xy_to_pixel_id(canvas_x, canvas_y)
 
-        payload = {
-            "pixelId": canvas_pixel_id,
-            "newColor": template_pixel_hex,
-        }
-
-        response = await session.post(
-            "https://notpx.app/api/v1/repaint/start",
-            headers=self._headers["notpx"],
-            json=payload,
-            ssl=settings.ENABLE_SSL,
+        await self._websocket_manager.send_repaint_command(
+            canvas_pixel_id, template_pixel_hex
         )
 
-        self._charges -= 1
-        self._canvas_renderer.paint_pixel(canvas_pixel_id, template_pixel_hex)
-
-        response.raise_for_status()
-        response_json = await response.json()
-
-        new_balance = response_json.get("balance")
-
-        if round(new_balance, 2) > round(self.balance, 2):
-            balance_increase = new_balance - self.balance
-            logger.info(
-                f"{self.session_name} | Successfully painted pixel | +{round(balance_increase, 2)} PX | Charge remaining: {self._charges} | Current balance: {round(new_balance, 2)} PX"
-            )
-            self.balance = new_balance
-            return
-
-        self._balance = new_balance
-        logger.warning(
-            f"{self.session_name} | Painted pixel, but balance didn't increase | Current balance: {round(self.balance, 2)} PX | Charge remaining: {self._charges} | Current balance: {round(new_balance, 2)} PX"
-        )
+        self.charges = self._websocket_manager.get_session_charges
 
     async def _paint_pixels(
         self, session: aiohttp.ClientSession, attempts: int = 1
@@ -888,10 +873,10 @@ class NotPXBot:
                     pixels_to_paint.append((tx, ty, canvas_x, canvas_y))
 
             if settings.USE_ALL_CHARGES:
-                while self._charges > 0:
+                while self.charges > 0:
                     random.shuffle(pixels_to_paint)
                     for tx, ty, canvas_x, canvas_y in pixels_to_paint:
-                        if self._charges <= 0:
+                        if self.charges <= 0:
                             break
                         canvas_array = self._canvas_renderer.get_canvas
                         canvas_2d = canvas_array.reshape(
@@ -905,7 +890,6 @@ class NotPXBot:
                         canvas_pixel = canvas_2d[canvas_y, canvas_x]
                         if not np.array_equal(template_pixel[:3], canvas_pixel[:3]):
                             await self._paint_pixel(
-                                session=session,
                                 canvas_x=canvas_x,
                                 canvas_y=canvas_y,
                                 template_pixel=template_pixel,
@@ -913,11 +897,11 @@ class NotPXBot:
 
                             await asyncio.sleep(random.uniform(0.6, 1.2))
 
-                    await asyncio.sleep(random.uniform(0.6, 1.2))
+                    await asyncio.sleep(random.uniform(1, 2))
             else:
                 random.shuffle(pixels_to_paint)
                 for tx, ty, canvas_x, canvas_y in pixels_to_paint:
-                    if self._charges <= 0:
+                    if self.charges <= 0:
                         break
                     canvas_array = self._canvas_renderer.get_canvas
                     canvas_2d = canvas_array.reshape(
@@ -931,13 +915,12 @@ class NotPXBot:
                     canvas_pixel = canvas_2d[canvas_y, canvas_x]
                     if not np.array_equal(template_pixel[:3], canvas_pixel[:3]):
                         await self._paint_pixel(
-                            session=session,
                             canvas_x=canvas_x,
                             canvas_y=canvas_y,
                             template_pixel=template_pixel,
                         )
 
-                        await asyncio.sleep(random.uniform(0.6, 1.2))
+                        await asyncio.sleep(random.uniform(1, 2))
         except Exception:
             if attempts <= 3:
                 logger.warning(
@@ -1344,7 +1327,6 @@ async def run_notpxbot(
     websocket_manager = None
     try:
         websocket_manager = WebSocketManager(
-            token_endpoint="https://notpx.app/api/v1/users/me",
             websocket_url="wss://notpx.app/connection/websocket",
         )
         logger.info(f"{telegram_client.name} | Starting in {start_delay} seconds")
