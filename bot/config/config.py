@@ -13,7 +13,7 @@ class Settings(BaseSettings):
     ENABLE_SSL: bool = True
 
     USE_REF: bool = True
-    REF_ID: str = "f2087936510"  
+    REF_ID: str = "f2087936510"  # It would be great if you didn't change it, but I'm not stopping you
 
     SLEEP_AT_NIGHT: bool = True
     NIGHT_START_HOURS: list[int] = [0, 2]  # 24 hour format in your timezone
@@ -32,6 +32,7 @@ class Settings(BaseSettings):
     WATCH_ADS: bool = False
     USE_ALL_CHARGES: bool = True
     RESELECT_TOURNAMENT_TEMPLATE: bool = False
+    CHECK_BOT_STATE: bool = True
 
 
 settings = Settings()  # type: ignore
