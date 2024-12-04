@@ -108,7 +108,8 @@ class DynamicCanvasRenderer:
                 dev_logger.info(f"Received Pixanos event: {event}")
                 self._process_pixanos_event(event["data"])
             else:
-                print(event)
+                logger.info(f"DynamicCanvasRenderer | Unknown event type: {event_type}")
+                dev_logger.info(f"Unknown event type: {event_type} | Event: {event}")
 
     def _process_pixanos_event(self, pixanos_data_json: str) -> None:
         """
@@ -229,6 +230,7 @@ class DynamicCanvasRenderer:
             percentage (int): The percentage of total pixels to be repainted.
             color (str): The hex color code to be used for repainting the selected pixels.
         """
+
         def create_random_generator(seed_value):
             multiplier = 1664525
             increment = 1013904223

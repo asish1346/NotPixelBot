@@ -35,34 +35,8 @@ class SessionErrors(Exception):
     def __init__(self, message: str = "Unknown Session error") -> None:
         super().__init__(message)
 
-    class NoAvailableSessionsError(Exception):
-        """Raised when there are no available sessions."""
-
-        def __init__(self, message: str = "No available sessions") -> None:
-            super().__init__(message)
-
     class NoActiveSessionError(Exception):
         """Raised when there is no active session."""
 
         def __init__(self, message: str = "No active session") -> None:
             super().__init__(message)
-    
-    class MaxSwitchAttemptsError(Exception):
-        """Raised when the maximum number of switch attempts has been reached."""
-
-        def __init__(self, message: str = "Max switch attempts reached") -> None:
-            super().__init__(message)
-
-
-class TokenError(Exception):
-    """Base exception for token-related errors."""
-
-    def __init__(self, message: str = "Unknown token error") -> None:
-        super().__init__(message)
-    
-
-class UpdateAuthHeaderError(Exception):
-    """Base exception for updating auth header errors."""
-
-    def __init__(self, message: str = "Unknown update auth header error") -> None:
-        super().__init__(message)
