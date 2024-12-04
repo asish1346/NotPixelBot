@@ -68,7 +68,7 @@ class NotPXBot:
             },
             "energyLimit": {2: 5, 3: 100, 4: 200, 5: 300, 6: 400, 7: 10},
         }
-        self._tasks_list: Dict[str, Dict[str, str]] = {
+        self._tasks_list: Dict[str, Dict[str, Any]] = {
             "x_tasks_list": {
                 "x:notpixel": "notpixel",
                 "x:notcoin": "notcoin",
@@ -82,9 +82,30 @@ class NotPXBot:
                 "leagueBonusGold": "leagueBonusGold",
                 "leagueBonusPlatinum": "leagueBonusPlatinum",
             },
-            "click_tasks_list": {},
+            "click_tasks_list": {
+                "tonPoker": {
+                    "event_name": "task_poker",
+                    "name": "tonPoker",
+                    "reward": 512,
+                },
+                "flappyBird": {
+                    "event_name": "task_flappy",
+                    "name": "flappyBird",
+                    "reward": 512,
+                },
+                "hauntedSpace": {
+                    "event_name": "task_haunted",
+                    "name": "hauntedSpace",
+                    "reward": 512,
+                },
+                "capsGame": {
+                    "event_name": "task_caps",
+                    "name": "capsGame",
+                    "reward": 512,
+                },
+            },
         }
-        self._tasks_to_complete: Dict[str, Dict[str, str]] = {}
+        self._tasks_to_complete: Dict[str, Dict[str, Any]] = {}
         self._league_weights: Dict[str, int] = {
             "bronze": 0,
             "silver": 1,
@@ -150,7 +171,7 @@ class NotPXBot:
             try:
                 proxy_connector = ProxyConnector().from_url(proxy) if proxy else None
                 async with aiohttp.ClientSession(
-                    connector=proxy_connector, timeout=aiohttp.ClientTimeout(10)
+                    connector=proxy_connector, timeout=aiohttp.ClientTimeout(15)
                 ) as session:
                     if proxy:
                         await self._proxy_checker(session, proxy)
@@ -207,14 +228,15 @@ class NotPXBot:
         if settings.SLEEP_AT_NIGHT:
             await self._handle_night_sleep()
 
-        bot_state = await session.get(
-            "https://raw.githubusercontent.com/Dellenoam/NotPixelBot/refs/heads/master/bot_state"
-        )
-        bot_state.raise_for_status()
+        if settings.CHECK_BOT_STATE:
+            bot_state = await session.get(
+                "https://raw.githubusercontent.com/Dellenoam/NotPixelBot/refs/heads/master/bot_state"
+            )
+            bot_state.raise_for_status()
 
-        if await bot_state.text() != "running":
-            logger.critical("Admin has stopped the bot!")
-            sys.exit(1)
+            if await bot_state.text() != "running":
+                logger.critical("Admin has stopped the bot!")
+                sys.exit(1)
 
         if not await self._notpx_api_checker.check_api(session, self._headers["notpx"]):
             logger.critical("NotPX API has been changed!")
@@ -339,6 +361,8 @@ class NotPXBot:
         if should_paint_pixels:
             await self._paint_pixels(session)
 
+        self.balance = self._websocket_manager.get_session_balance
+
         if settings.CLAIM_PX:
             await self._claim_px(session)
 
@@ -353,7 +377,6 @@ class NotPXBot:
 
         await self._get_tournament_results(session, auth_url)
 
-        self.balance = self._websocket_manager.get_session_balance
         logger.info(f"{self.session_name} | All done | Balance: {self.balance}")
 
         await self._websocket_manager.stop()
@@ -556,6 +579,8 @@ class NotPXBot:
 
             claimed_px = response_json.get("claimed")
 
+            self.balance += claimed_px
+
             logger.info(
                 f"{self.session_name} | Successfully claimed {round(claimed_px, 2)} px"
             )
@@ -699,7 +724,9 @@ class NotPXBot:
             for task_list_key, task_list_value in self._tasks_list.items():
                 for task_key, task_value in task_list_value.items():
                     if task_key not in self._completed_tasks:
-                        if task_value.startswith("leagueBonus"):
+                        if isinstance(task_value, str) and task_value.startswith(
+                            "leagueBonus"
+                        ):
                             league_name = task_value.split("leagueBonus")[1].lower()
 
                             task_league_weight = self._league_weights[league_name]
@@ -775,7 +802,9 @@ class NotPXBot:
                     f"{self.session_name} | Failed to upgrade boosts, retrying in {self.RETRY_DELAY} seconds | Attempts: {attempts}"
                 )
                 await asyncio.sleep(self.RETRY_DELAY)
-                await self._upgrade_boosts(session=session, attempts=attempts + 1)
+                return await self._upgrade_boosts(
+                    session=session, attempts=attempts + 1
+                )
 
             raise Exception(f"{self.session_name} | Error while upgrading boosts")
 
@@ -927,7 +956,7 @@ class NotPXBot:
                     f"{self.session_name} | Failed to paint pixels, retrying in {self.RETRY_DELAY} seconds | Attempts: {attempts}"
                 )
                 await asyncio.sleep(self.RETRY_DELAY)
-                await self._paint_pixels(session=session, attempts=attempts + 1)
+                return await self._paint_pixels(session=session, attempts=attempts + 1)
 
             raise Exception(
                 f"{self.session_name} | Max retry attempts reached while painting pixels"
@@ -955,9 +984,7 @@ class NotPXBot:
                         )
                         response.raise_for_status()
                         response_json = await response.json()
-                        if response_json.get("x:" + task_value) or response_json.get(
-                            task_value
-                        ):
+                        if response_json.get("x:" + task_value):
                             logger.info(
                                 f"{self.session_name} | Completed task: {task_value} on X.com"
                             )
@@ -1000,24 +1027,24 @@ class NotPXBot:
                         and settings.COMPLETE_DANGER_TASKS
                     ):
                         plausible_payload = await self._create_plausible_payload(
-                            u="https://app.notpx.app/claiming", n="task_utgardApp"
+                            u="https://app.notpx.app/claiming",
+                            n=task_value["event_name"],
                         )
                         await self._send_plausible_event(session, plausible_payload)
 
                         await asyncio.sleep(random.uniform(2, 3.5))
 
                         response = await session.get(
-                            f"https://notpx.app/api/v1/mining/task/check/{task_value}",
+                            f"https://notpx.app/api/v1/mining/task/check/{task_key}",
                             headers=self._headers["notpx"],
                             ssl=settings.ENABLE_SSL,
                         )
                         response.raise_for_status()
                         response_json = await response.json()
-                        if response_json.get("x:" + task_value) or response_json.get(
-                            task_value
-                        ):
+                        if response_json.get(task_key):
+                            self.balance += task_value["reward"]
                             logger.info(
-                                f"{self.session_name} | Completed task: {task_value}"
+                                f"{self.session_name} | Completed task: {task_key} | Reward {task_value['reward']} PX"
                             )
                         else:
                             raise Exception(
@@ -1044,7 +1071,7 @@ class NotPXBot:
                     f"{self.session_name} | Failed to complete tasks, retrying in {self.RETRY_DELAY} seconds | Attempts: {attempts}"
                 )
                 await asyncio.sleep(self.RETRY_DELAY)
-                await self._task_completion(
+                return await self._task_completion(
                     session=session,
                     telegram_client=telegram_client,
                     attempts=attempts + 1,
@@ -1098,7 +1125,7 @@ class NotPXBot:
                     f"{self.session_name} | Failed to get tournament results, retrying in {self.RETRY_DELAY} seconds | Attempts: {attempts}"
                 )
                 await asyncio.sleep(self.RETRY_DELAY)
-                await self._get_tournament_results(
+                return await self._get_tournament_results(
                     session=session,
                     auth_url=auth_url,
                     attempts=attempts + 1,
@@ -1148,7 +1175,7 @@ class NotPXBot:
                     f"{self.session_name} | Failed to set tournament template, retrying in {self.RETRY_DELAY} seconds | Attempts: {attempts}"
                 )
                 await asyncio.sleep(self.RETRY_DELAY)
-                await self._set_tournament_template(
+                return await self._set_tournament_template(
                     session=session, auth_url=auth_url, attempts=attempts + 1
                 )
 
@@ -1233,7 +1260,9 @@ class NotPXBot:
                     f"{self.session_name} | Failed to complete secret word quest, retrying in {self.RETRY_DELAY} seconds | Attempts: {attempts}"
                 )
                 await asyncio.sleep(self.RETRY_DELAY)
-                await self._quest_completion(session=session, attempts=attempts + 1)
+                return await self._quest_completion(
+                    session=session, attempts=attempts + 1
+                )
 
             raise Exception(
                 f"{self.session_name} | Max retry attempts reached while completing secret word quest"
@@ -1271,7 +1300,7 @@ class NotPXBot:
                     f"{self.session_name} | Failed to watch ads, retrying in {self.RETRY_DELAY} seconds | Attempts: {attempts}"
                 )
                 await asyncio.sleep(self.RETRY_DELAY)
-                await self._watch_ads(session=session, attempts=attempts + 1)
+                return await self._watch_ads(session=session, attempts=attempts + 1)
 
             raise Exception(
                 f"{self.session_name} | Max retry attempts reached while watching ads"
