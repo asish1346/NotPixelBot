@@ -11,8 +11,10 @@ from better_proxy import Proxy
 from pyrogram.errors import (
     AuthKeyUnregistered,
     FloodWait,
+    SessionRevoked,
     Unauthorized,
     UserDeactivated,
+    UserDeactivatedBan,
 )
 from pyrogram.raw.functions.messages.request_app_web_view import RequestAppWebView
 from pyrogram.raw.types.input_bot_app_short_name import InputBotAppShortName
@@ -47,7 +49,7 @@ class TelegramMiniAppAuth:
                 self.start_param = start_param
 
             if not self._telegram_client.is_connected:
-                await self._connect_telegram_client()
+                await self._telegram_client.connect()
 
             peer = await self._telegram_client.resolve_peer(peer_id=peer_id)
             web_view = await self._telegram_client.invoke(
@@ -93,6 +95,14 @@ class TelegramMiniAppAuth:
             raise Exception(
                 f"{self.session_name} | Error while getting telegram web data"
             )
+        except (
+            Unauthorized,
+            UserDeactivated,
+            AuthKeyUnregistered,
+            SessionRevoked,
+            UserDeactivatedBan,
+        ):
+            raise Exception(f"{self.session_name} | Invalid session")
         except Exception:
             if attempt <= 3:
                 logger.warning(
@@ -105,13 +115,6 @@ class TelegramMiniAppAuth:
             raise Exception(
                 f"{self.session_name} | Error while getting telegram web data"
             )
-
-    async def _connect_telegram_client(self):
-        try:
-            await self._telegram_client.connect()
-        except (Unauthorized, UserDeactivated, AuthKeyUnregistered):
-            logger.error(f"{self.session_name} | Invalid session")
-            raise
 
     def _get_user_data(self, query_params) -> Dict[str, str]:
         user_data = json.loads(query_params["user"][0])
