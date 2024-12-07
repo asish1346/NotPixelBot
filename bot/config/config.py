@@ -34,5 +34,7 @@ class Settings(BaseSettings):
     RESELECT_TOURNAMENT_TEMPLATE: bool = False
     CHECK_BOT_STATE: bool = True
 
+    SECRET_WORDS: list[str] = ["secretWord:example"]
+
 
 settings = Settings()  # type: ignore
