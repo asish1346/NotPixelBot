@@ -84,6 +84,8 @@ def decode_message(binary_message) -> Dict[str, Any] | None:
                 "data": reply.rpc.data,
             }
             return protobuf_message
+        elif reply.id <= 0 and not reply.HasField("push"):
+            return {"type": "ping"}
 
 
 def encode_commands(commands_to_encode) -> bytes:

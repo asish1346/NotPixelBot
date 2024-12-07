@@ -156,14 +156,7 @@ class WebSocketManager:
 
                 message = await self._websocket.receive()
 
-                if not message.data:
-                    continue
-
-                elif message.data == b"\x00":
-                    await self._websocket.send_bytes(b"\x00")
-                    continue
-
-                elif message.type == WSMsgType.CLOSE:
+                if message.type == WSMsgType.CLOSE:
                     raise WebSocketErrors.ServerClosedConnectionError(
                         "WebSocket server closed connection"
                     )
@@ -191,9 +184,6 @@ class WebSocketManager:
         if not message:
             return
 
-        if self.__connection_attempts > 1:
-            self.__connection_attempts = 1
-
         if message.get("type") == "canvas_image":
             self._canvas_renderer.set_canvas(message.get("data"))
             self._is_canvas_set = True
@@ -216,6 +206,13 @@ class WebSocketManager:
                 )
 
             self.session.balance = balance
+
+        elif message.get("type") == "ping":
+            pong = encode_commands([{}])
+            await self._websocket.send_bytes(pong)
+
+        if self.__connection_attempts > 1:
+            self.__connection_attempts = 1
 
     async def _handle_websocket_auth(self) -> None:
         if not self._websocket or self._websocket.closed:
