@@ -189,7 +189,7 @@ class WebSocketManager:
             self._is_canvas_set = True
             return
 
-        elif message.get("type") == "canvas_data":
+        elif message.get("type") == "canvas_data" and self._is_canvas_set:
             self._canvas_renderer.update_canvas(message)
 
         elif message.get("type") == "balance":
