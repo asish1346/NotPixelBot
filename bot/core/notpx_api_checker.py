@@ -107,6 +107,7 @@ class NotPXAPIChecker:
                 "/mining/status",
                 "/mining/task/check/${s}${a}",
                 "/ratings/personal?league=${n.toLowerCase()}&limit=20",
+                "/ratings/pixanos",
                 "/ratings/squads/${n}",
                 "/ratings/squads?league=${n.toLowerCase()}&limit=20",
                 "/repaint/special",
