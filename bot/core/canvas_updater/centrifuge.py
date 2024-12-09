@@ -54,7 +54,7 @@ def decode_message(binary_message) -> Dict[str, Any] | None:
     replies = codec.decode_replies(binary_message)
 
     for reply in replies:
-        if reply.push and reply.push.pub and reply.push.pub.data:
+        if reply.HasField("push"):
             if reply.push.channel == "event:message":
                 decoded_data = reply.push.pub.data.decode()
                 protobuf_message = {
@@ -63,7 +63,7 @@ def decode_message(binary_message) -> Dict[str, Any] | None:
                     "data": json.loads(decoded_data),
                 }
                 return protobuf_message
-            else:
+            elif reply.push.channel == "pixel:message":
                 uncompressed_data = decompress(reply.push.pub.data, -zlib.MAX_WBITS)
                 decoded_data = json.loads(uncompressed_data.decode())
                 protobuf_message = {
@@ -72,13 +72,13 @@ def decode_message(binary_message) -> Dict[str, Any] | None:
                     "data": decoded_data,
                 }
                 return protobuf_message
-        elif reply.connect and reply.connect.data:
+        elif reply.HasField("connect"):
             protobuf_message = {
                 "type": "canvas_image",
                 "data": reply.connect.data,
             }
             return protobuf_message
-        elif reply.rpc and reply.rpc.data:
+        elif reply.HasField("rpc"):
             protobuf_message = {
                 "type": "balance",
                 "data": reply.rpc.data,
