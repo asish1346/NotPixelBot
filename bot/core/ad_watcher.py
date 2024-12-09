@@ -201,10 +201,9 @@ class AdWatcher:
                     headers=self._headers["adsgram"],
                     ssl=settings.ENABLE_SSL,
                 )
+
                 if adsgram_response.status == 403:
-                    logger.info(
-                        f"{self.session_name} | No ads to watch | Status code: {adsgram_response.status}"
-                    )
+                    logger.info(f"{self.session_name} | No ads to watch")
                     break
                 adsgram_response.raise_for_status()
                 adsgram_response_json = await adsgram_response.json()
@@ -212,6 +211,8 @@ class AdWatcher:
                 if not adsgram_response_json:
                     logger.info(f"{self.session_name} | No ads to watch")
                     break
+
+                adsgram_response_json = await adsgram_response.json()
 
                 if adsgram_response_json["bannerType"] == "FullscreenMedia":
                     await self._handle_fullscreen_media(
