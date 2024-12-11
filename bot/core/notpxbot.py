@@ -238,7 +238,7 @@ class NotPXBot:
             bot_state.raise_for_status()
 
             if await bot_state.text() != "running":
-                logger.critical("Admin has stopped the bot!")
+                logger.critical("Admins have stopped the bot!")
                 sys.exit(1)
 
         if not await self._notpx_api_checker.check_api(session, self._headers["notpx"]):
@@ -282,6 +282,9 @@ class NotPXBot:
             proxy=self.proxy,
             websocket_token=websocket_token,
         )
+
+        if settings.COMPLETE_QUESTS and self._quests_to_complete:
+            await self._quest_completion(session)
 
         if settings.UPGRADE_BOOSTS:
             if (
@@ -371,9 +374,6 @@ class NotPXBot:
 
         if settings.COMPLETE_TASKS and self._tasks_to_complete:
             await self._task_completion(session, telegram_client)
-
-        if settings.COMPLETE_QUESTS and self._quests_to_complete:
-            await self._quest_completion(session)
 
         if settings.WATCH_ADS:
             await self._watch_ads(session)
