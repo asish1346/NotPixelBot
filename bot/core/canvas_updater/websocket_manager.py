@@ -243,7 +243,7 @@ class WebSocketManager:
         self._websocket_command_id += 1
         repaint_command = [
             {
-                "rpc": {"method": "repaint", "data": repaint_data.encode()},
+                "rpc": {"method": "repaintTournament", "data": repaint_data.encode()},
                 "id": self._websocket_command_id,
             }
         ]
@@ -279,8 +279,9 @@ class WebSocketManager:
 
 def handle_task_completion(task: asyncio.Task) -> None:
     try:
-        if task.exception():
-            raise task.exception()
+        exception = task.exception()
+        if exception is not None:
+            raise exception
     except (asyncio.CancelledError, KeyboardInterrupt):
         pass
     except Exception as error:
