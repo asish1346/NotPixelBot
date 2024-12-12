@@ -12,6 +12,8 @@ not_pixel_text_art = """
 ╚═╝  ╚═══╝ ╚═════╝    ╚═╝       ╚═╝     ╚═╝╚═╝  ╚═╝╚══════╝╚══════╝  
 
 \033[33mVersion:- 4.4\033[0m
+
+\033[33mNotPixel Now Giving Bans So Proceed At Your Own Risk...\033[0m
 """
 
 capybara_society_art = """
